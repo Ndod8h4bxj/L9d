@@ -1,34 +1,50 @@
-name: Create AWS VPS
+name: RDP Setup
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
-  setup-vps:
+  setup-rdp:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Install AWS CLI
+      - name: Update and Install XRDP
         run: |
-          sudo apt update && sudo apt install -y awscli
-          aws --version
-      
-      - name: Configure AWS CLI
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: |
-          aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
-          aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
-          aws configure set default.region us-east-1
+          echo "Updating system..."
+          sudo apt update && sudo apt install -y xrdp xfce4 xfce4-goodies
+          echo "Configuring XRDP..."
+          sudo systemctl enable xrdp
+          sudo systemctl start xrdp
 
-      - name: Launch EC2 Instance
+      - name: Configure Desktop Environment
         run: |
-          aws ec2 run-instances \
-            --image-id ami-12345678 \ # Replace with Ubuntu 22.04 AMI ID
-            --count 1 \
-            --instance-type t2.micro \
-            --key-name your-key-pair \
-            --security-group-ids sg-12345678 \
-            --subnet-id subnet-12345678 \
-            --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=GitHub-VPS}]'
+          echo "Setting up desktop environment..."
+          echo xfce4-session > ~/.xsession
+          sudo service xrdp restart
+
+      - name: Set RDP Credentials
+        run: |
+          echo "Setting up RDP user credentials..."
+          sudo useradd -m -s /bin/bash rdpuser
+          echo "rdpuser:password" | sudo chpasswd
+          echo "User: rdpuser, Password: password"
+
+      - name: Display Server Info
+        run: |
+          echo "Fetching server details..."
+          IP=$(hostname -I | awk '{print $1}')
+          echo "=========================================="
+          echo "RDP Server Details:"
+          echo "IP Address: $IP"
+          echo "Port: 3389"
+          echo "Username: rdpuser"
+          echo "Password: password"
+          echo "=========================================="
+
+      - name: Keep Runner Alive
+        run: |
+          echo "Keeping the RDP session running..."
+          while true; do sleep 30; done
